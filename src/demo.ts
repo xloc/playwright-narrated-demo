@@ -51,8 +51,10 @@ for (let i = 0; i < sayComments.length; i++) {
 // 3. Run original test unmodified with video + trace
 const testResultsDir = path.join(tmpDir, "test-results");
 const configPath = path.join(tmpDir, "playwright.config.ts");
+const userConfig = path.resolve("playwright.config.ts");
 fs.writeFileSync(configPath, `import { defineConfig } from '@playwright/test';
-export default defineConfig({
+import base from ${JSON.stringify(userConfig)};
+export default defineConfig(base, {
   testDir: ${JSON.stringify(path.dirname(testPath))},
   timeout: 120000,
   use: {
