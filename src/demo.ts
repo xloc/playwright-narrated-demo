@@ -16,10 +16,13 @@ fs.mkdirSync(tmpBase, { recursive: true });
 const tmpDir = fs.mkdtempSync(path.join(tmpBase, "run-"));
 const outputDir = path.resolve("demo-output");
 const ACTION_FREEZE_S = 0.5;
-const ENC = "-c:v libx264 -preset fast -pix_fmt yuv420p -r 25";
+const FRAME_RATE = 25;
+const ENC = `-c:v libx264 -preset fast -pix_fmt yuv420p -r ${FRAME_RATE}`;
 
 const q = (p: string) => `"${p}"`;
 const norm = (p: string) => p.replace(/\\/g, "/");
+// Snap to video frame grid so every timestamp maps to an actual frame
+const snap = (t: number) => Math.floor(t * FRAME_RATE) / FRAME_RATE;
 
 // 1. Parse source
 const source = fs.readFileSync(testPath, "utf-8");
@@ -175,9 +178,9 @@ for (let ti = 0; ti < testsToProcess.length; ti++) {
   const { videoPath, tracePath, says, excLines } = testsToProcess[ti];
   console.log(`\nProcessing test ${ti + 1}/${testsToProcess.length}...`);
 
-  const vidDurS = parseFloat(
+  const vidDurS = snap(parseFloat(
     execSync(`ffprobe -v error -show_entries format=duration -of csv=p=0 ${q(videoPath)}`).toString().trim()
-  );
+  ));
 
   // Parse trace
   const traceDir = path.join(tmpDir, `trace-${ti}`);
@@ -211,7 +214,7 @@ for (let ti = 0; ti < testsToProcess.length; ti++) {
       const b = befores.get(e.callId)!;
       const line = stepToLine.get(b.stepId);
       if (line) {
-        traceActions.push({ line, startS: (b.startTime - videoT0) / 1000, endS: (e.endTime - videoT0) / 1000 });
+        traceActions.push({ line, startS: snap((b.startTime - videoT0) / 1000), endS: snap((e.endTime - videoT0) / 1000) });
       }
     }
   }
@@ -314,8 +317,7 @@ for (let ti = 0; ti < testsToProcess.length; ti++) {
 
     const frameFile = path.join(segDir, `${segNum}-frame.png`);
     const freezeFile = path.join(segDir, `${String(segNum++).padStart(3, "0")}-f.mp4`);
-    const seekT = Math.min(t, vidDurS - 0.1); // avoid seeking past last frame
-    execSync(`ffmpeg -y -ss ${seekT} -i ${q(videoPath)} -frames:v 1 ${q(frameFile)}`, { stdio: "pipe" });
+    execSync(`ffmpeg -y -ss ${t} -i ${q(videoPath)} -frames:v 1 ${q(frameFile)}`, { stdio: "pipe" });
     execSync(`ffmpeg -y -loop 1 -i ${q(frameFile)} -t ${fp.durS} ${ENC} -an ${q(freezeFile)}`, { stdio: "pipe" });
     segments.push({ file: freezeFile, duration: fp.durS, sayIndex: fp.sayIndex });
   }
