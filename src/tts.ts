@@ -43,7 +43,7 @@ const openai: TTSProvider = {
 
 const providers = [macSay, openai];
 
-const cacheDir = path.resolve(".demo-cache");
+const cacheDir = path.resolve(".demo-cache", "tts");
 
 function cached(provider: TTSProvider): TTSProvider {
   return {

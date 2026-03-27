@@ -1,7 +1,6 @@
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
-import os from "os";
 import { getProvider } from "./tts";
 
 const testFile = process.argv[2];
@@ -12,7 +11,9 @@ if (!testFile) {
 
 const testPath = path.resolve(testFile);
 const testName = path.basename(testFile, ".spec.ts");
-const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "demo-"));
+const tmpBase = path.resolve(".demo-cache", "playwright");
+fs.mkdirSync(tmpBase, { recursive: true });
+const tmpDir = fs.mkdtempSync(path.join(tmpBase, "run-"));
 const outputDir = path.resolve("demo-output");
 const ACTION_FREEZE_S = 0.5;
 const ENC = "-c:v libx264 -preset fast -pix_fmt yuv420p -r 25";
