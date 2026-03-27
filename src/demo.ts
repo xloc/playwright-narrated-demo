@@ -175,9 +175,18 @@ for (const action of traceActions) {
 }
 console.log(`freezePoints (before filter): ${JSON.stringify(freezePoints)}`);
 
-// Sort by time, skip points too close together
-freezePoints.sort((a, b) => a.timeS - b.timeS);
-const filtered = freezePoints.filter((p, i) => i === 0 || p.timeS - freezePoints[i - 1].timeS > 0.02);
+// Sort by time; when close together, prefer @say freezes over action-end freezes
+freezePoints.sort((a, b) => a.timeS - b.timeS || (a.sayIndex !== undefined ? -1 : 1));
+const filtered: FreezePoint[] = [];
+for (const p of freezePoints) {
+  const prev = filtered[filtered.length - 1];
+  if (!prev || p.timeS - prev.timeS > 0.02) {
+    filtered.push(p);
+  } else if (p.sayIndex !== undefined && prev.sayIndex === undefined) {
+    // Replace action-end freeze with @say freeze
+    filtered[filtered.length - 1] = p;
+  }
+}
 console.log(`filtered freezePoints: ${JSON.stringify(filtered)}`);
 console.log(`sayComments: ${JSON.stringify(sayComments)}`);
 console.log(`audioDurMs: ${JSON.stringify(audioDurMs)}`);
