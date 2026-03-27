@@ -18,6 +18,11 @@ const outputDir = path.resolve("demo-output");
 const ACTION_FREEZE_S = 0.5;
 const ENC = "-c:v libx264 -preset fast -pix_fmt yuv420p -r 25";
 
+// Quote paths for shell commands (handles spaces and backslashes)
+const q = (p: string) => `"${p}"`;
+// Normalize path separators for comparison (trace files always use forward slashes)
+const norm = (p: string) => p.replace(/\\/g, "/");
+
 // 1. Parse @say comments with line numbers
 const source = fs.readFileSync(testPath, "utf-8");
 const sourceLines = source.split("\n");
@@ -38,7 +43,7 @@ const audioDurMs: number[] = [];
 for (let i = 0; i < sayComments.length; i++) {
   const p = path.join(tmpDir, `say-${i}${tts.ext}`);
   tts.generate(sayComments[i].text, p);
-  const dur = execSync(`ffprobe -v error -show_entries format=duration -of csv=p=0 ${p}`).toString().trim();
+  const dur = execSync(`ffprobe -v error -show_entries format=duration -of csv=p=0 ${q(p)}`).toString().trim();
   audioFiles.push(p);
   audioDurMs.push(parseFloat(dur) * 1000);
 }
@@ -63,7 +68,7 @@ export default defineConfig({
 
 console.log("Running test...");
 try {
-  execSync(`npx playwright test ${path.basename(testFile)} --config=${configPath}`, {
+  execSync(`npx playwright test ${path.basename(testFile)} --config=${q(configPath)}`, {
     stdio: "inherit",
     cwd: path.dirname(testPath),
   });
@@ -86,7 +91,7 @@ const tracePath = findFile(testResultsDir, "trace.zip");
 if (!videoPath || !tracePath) { console.error("Missing video or trace"); process.exit(1); }
 
 const vidDurS = parseFloat(
-  execSync(`ffprobe -v error -show_entries format=duration -of csv=p=0 ${videoPath}`).toString().trim()
+  execSync(`ffprobe -v error -show_entries format=duration -of csv=p=0 ${q(videoPath)}`).toString().trim()
 );
 
 // 5. Parse trace for action timestamps with source lines
@@ -113,7 +118,7 @@ const videoT0 = ctxTrace.find((e: any) => e.type === "context-options")!.monoton
 const stepToLine = new Map<string, number>();
 for (const e of testTrace) {
   if (e.type === "before" && e.stack?.length) {
-    const frame = e.stack.find((s: any) => s.file === testPath);
+    const frame = e.stack.find((s: any) => norm(s.file) === norm(testPath));
     if (frame) stepToLine.set(e.stepId, frame.line);
   }
 }
@@ -173,29 +178,29 @@ for (const fp of filtered) {
 
   if (t > cursor + 0.04) {
     const f = path.join(segDir, `${String(segNum++).padStart(3, "0")}-v.mp4`);
-    execSync(`ffmpeg -y -i ${videoPath} -ss ${cursor} -to ${t} ${ENC} -an ${f}`, { stdio: "pipe" });
+    execSync(`ffmpeg -y -i ${q(videoPath)} -ss ${cursor} -to ${t} ${ENC} -an ${q(f)}`, { stdio: "pipe" });
     segments.push({ file: f, duration: t - cursor });
   }
 
   const frameFile = path.join(segDir, `${segNum}-frame.png`);
   const freezeFile = path.join(segDir, `${String(segNum++).padStart(3, "0")}-f.mp4`);
-  execSync(`ffmpeg -y -ss ${t} -i ${videoPath} -frames:v 1 ${frameFile}`, { stdio: "pipe" });
-  execSync(`ffmpeg -y -loop 1 -i ${frameFile} -t ${fp.durS} ${ENC} -an ${freezeFile}`, { stdio: "pipe" });
+  execSync(`ffmpeg -y -ss ${t} -i ${q(videoPath)} -frames:v 1 ${q(frameFile)}`, { stdio: "pipe" });
+  execSync(`ffmpeg -y -loop 1 -i ${q(frameFile)} -t ${fp.durS} ${ENC} -an ${q(freezeFile)}`, { stdio: "pipe" });
   segments.push({ file: freezeFile, duration: fp.durS, sayIndex: fp.sayIndex });
   cursor = t;
 }
 
 if (vidDurS > cursor + 0.04) {
   const f = path.join(segDir, `${String(segNum++).padStart(3, "0")}-v.mp4`);
-  execSync(`ffmpeg -y -i ${videoPath} -ss ${cursor} -to ${vidDurS} ${ENC} -an ${f}`, { stdio: "pipe" });
+  execSync(`ffmpeg -y -i ${q(videoPath)} -ss ${cursor} -to ${vidDurS} ${ENC} -an ${q(f)}`, { stdio: "pipe" });
   segments.push({ file: f, duration: vidDurS - cursor });
 }
 
 // 8. Concat segments
 const concatList = path.join(tmpDir, "concat.txt");
-fs.writeFileSync(concatList, segments.map((s) => `file '${s.file}'`).join("\n"));
+fs.writeFileSync(concatList, segments.map((s) => `file '${norm(s.file)}'`).join("\n"));
 const concatFile = path.join(tmpDir, "concat.mp4");
-execSync(`ffmpeg -y -f concat -safe 0 -i ${concatList} -c copy ${concatFile}`, { stdio: "pipe" });
+execSync(`ffmpeg -y -f concat -safe 0 -i ${q(concatList)} -c copy ${q(concatFile)}`, { stdio: "pipe" });
 
 // 9. Overlay audio
 fs.mkdirSync(outputDir, { recursive: true });
@@ -212,12 +217,12 @@ if (audioSegs.length) {
     cumDur += seg.duration;
   }
 
-  const inputs = positions.map((a) => `-i ${audioFiles[a.sayIndex]}`).join(" ");
+  const inputs = positions.map((a) => `-i ${q(audioFiles[a.sayIndex])}`).join(" ");
   const parts = positions.map((a, i) => `[${i + 1}]adelay=${a.posMs}|${a.posMs}[a${i}]`);
   const mix = positions.map((_, i) => `[a${i}]`).join("");
   const filter = `${parts.join("; ")}; ${mix}amix=inputs=${positions.length}:normalize=0[aout]`;
   execSync(
-    `ffmpeg -y -i ${concatFile} ${inputs} -filter_complex "${filter}" -map 0:v -map "[aout]" -c:v copy ${outputPath}`,
+    `ffmpeg -y -i ${q(concatFile)} ${inputs} -filter_complex "${filter}" -map 0:v -map "[aout]" -c:v copy ${q(outputPath)}`,
     { stdio: "inherit" }
   );
 } else {
