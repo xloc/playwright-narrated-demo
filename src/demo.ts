@@ -92,7 +92,11 @@ const vidDurS = parseFloat(
 // 5. Parse trace for action timestamps with source lines
 const traceDir = path.join(tmpDir, "trace");
 fs.mkdirSync(traceDir);
-execSync(`unzip -o ${tracePath} -d ${traceDir}`, { stdio: "pipe" });
+if (process.platform === "win32") {
+  execSync(`powershell -Command "Expand-Archive -Force -Path '${tracePath}' -DestinationPath '${traceDir}'"`, { stdio: "pipe" });
+} else {
+  execSync(`unzip -o ${tracePath} -d ${traceDir}`, { stdio: "pipe" });
+}
 
 function parseTrace(file: string) {
   return fs.readFileSync(file, "utf-8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
