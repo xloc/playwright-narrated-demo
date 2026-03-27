@@ -122,6 +122,18 @@ for (const e of testTrace) {
     if (frame) stepToLine.set(e.stepId, frame.line);
   }
 }
+console.log(`stepToLine: ${stepToLine.size} entries`);
+if (!stepToLine.size) {
+  // Debug: show what paths are in the trace vs what we're looking for
+  const tracePaths = new Set<string>();
+  for (const e of testTrace) {
+    if (e.type === "before" && e.stack?.length) {
+      for (const s of e.stack) tracePaths.add(s.file);
+    }
+  }
+  console.log(`  trace paths: ${[...tracePaths].join(", ")}`);
+  console.log(`  looking for: ${norm(testPath)}`);
+}
 
 // Collect action start/end times from context trace, join with source lines
 type TraceAction = { line: number; startS: number; endS: number };
@@ -142,6 +154,7 @@ for (const e of ctxTrace) {
     }
   }
 }
+console.log(`traceActions: ${JSON.stringify(traceActions)}`);
 
 // 6. Build freeze points: @say (before action) + action result (after action)
 type FreezePoint = { timeS: number; durS: number; sayIndex?: number };
@@ -152,16 +165,23 @@ for (const say of sayComments) {
   const action = traceActions.filter((a) => a.line > say.line).sort((a, b) => a.line - b.line)[0];
   if (action) {
     freezePoints.push({ timeS: action.startS, durS: audioDurMs[say.index] / 1000, sayIndex: say.index });
+  } else {
+    console.log(`  @say "${say.text}" (line ${say.line}): no matching action found`);
   }
 }
 
 for (const action of traceActions) {
   freezePoints.push({ timeS: action.endS, durS: ACTION_FREEZE_S });
 }
+console.log(`freezePoints (before filter): ${JSON.stringify(freezePoints)}`);
 
 // Sort by time, skip points too close together
 freezePoints.sort((a, b) => a.timeS - b.timeS);
 const filtered = freezePoints.filter((p, i) => i === 0 || p.timeS - freezePoints[i - 1].timeS > 0.02);
+console.log(`filtered freezePoints: ${JSON.stringify(filtered)}`);
+console.log(`sayComments: ${JSON.stringify(sayComments)}`);
+console.log(`audioDurMs: ${JSON.stringify(audioDurMs)}`);
+console.log(`vidDurS: ${vidDurS}`);
 
 // 7. Build video segments
 console.log("Composing video...");
