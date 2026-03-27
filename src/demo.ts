@@ -317,7 +317,11 @@ for (let ti = 0; ti < testsToProcess.length; ti++) {
 
     const frameFile = path.join(segDir, `${segNum}-frame.png`);
     const freezeFile = path.join(segDir, `${String(segNum++).padStart(3, "0")}-f.mp4`);
+    // Input seeking is fast but can miss frames; fall back to output seeking
     execSync(`ffmpeg -y -ss ${t} -i ${q(videoPath)} -frames:v 1 ${q(frameFile)}`, { stdio: "pipe" });
+    if (!fs.existsSync(frameFile)) {
+      execSync(`ffmpeg -y -i ${q(videoPath)} -ss ${t} -frames:v 1 ${q(frameFile)}`, { stdio: "pipe" });
+    }
     execSync(`ffmpeg -y -loop 1 -i ${q(frameFile)} -t ${fp.durS} ${ENC} -an ${q(freezeFile)}`, { stdio: "pipe" });
     segments.push({ file: freezeFile, duration: fp.durS, sayIndex: fp.sayIndex });
   }
