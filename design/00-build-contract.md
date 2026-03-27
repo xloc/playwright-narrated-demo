@@ -10,7 +10,7 @@ As a user, I can:
 
 1. Run a single command that takes a `.spec.ts` file and outputs a narrated `.mp4` video
 2. Hear TTS voiceover from `@say` comments synced to the browser actions, with configurable timing (before the action, or alongside it)
-3. See actual browser interaction in the video (not screenshots)
+3. See actual browser interaction in the video (not screenshots), with a visible cursor indicator
 4. Choose a TTS voice/provider
 
 ## Milestones
@@ -25,10 +25,15 @@ As a user, I can:
 - Output video plays in standard players (QuickTime, VLC)
 - Output goes to `./demo-output/<test-name>.mp4`
 
+## Architecture
+Pipeline: parse source → generate audio → run test (video + trace) → parse trace → post-process with FFmpeg → output `.mp4`.
+
+The test runs unmodified. All timing comes from Playwright's trace files. Freeze frames and audio are composed in post-processing.
+
 ## Constraints
 
 - TypeScript / Node.js (matches existing project)
-- Use Playwright's built-in video recording
+- Use Playwright's built-in video recording + tracing
 - FFmpeg for video/audio post-processing (assumed installed)
 
 ## Not Doing
