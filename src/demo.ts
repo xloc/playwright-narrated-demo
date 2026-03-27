@@ -48,7 +48,7 @@ const testResultsDir = path.join(tmpDir, "test-results");
 const configPath = path.join(tmpDir, "playwright.config.ts");
 fs.writeFileSync(configPath, `import { defineConfig } from '@playwright/test';
 export default defineConfig({
-  testDir: '${path.dirname(testPath)}',
+  testDir: ${JSON.stringify(path.dirname(testPath))},
   timeout: 120000,
   use: {
     video: { mode: 'on', size: { width: 1280, height: 720 } },
@@ -57,7 +57,7 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { channel: 'chromium' } }],
   reporter: 'list',
-  outputDir: '${testResultsDir}',
+  outputDir: ${JSON.stringify(testResultsDir)},
 });
 `);
 
