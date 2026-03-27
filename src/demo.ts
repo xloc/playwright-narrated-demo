@@ -2,6 +2,7 @@ import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { getProvider } from "./tts";
 
 const testFile = process.argv[2];
 if (!testFile) {
@@ -30,12 +31,12 @@ if (!sayComments.length) {
 }
 
 // 2. Generate audio
-console.log("Generating audio...");
+const tts = getProvider();
 const audioFiles: string[] = [];
 const audioDurMs: number[] = [];
 for (let i = 0; i < sayComments.length; i++) {
-  const p = path.join(tmpDir, `say-${i}.aiff`);
-  execSync(`say -o ${p} ${JSON.stringify(sayComments[i].text)}`);
+  const p = path.join(tmpDir, `say-${i}${tts.ext}`);
+  tts.generate(sayComments[i].text, p);
   const dur = execSync(`ffprobe -v error -show_entries format=duration -of csv=p=0 ${p}`).toString().trim();
   audioFiles.push(p);
   audioDurMs.push(parseFloat(dur) * 1000);

@@ -1,5 +1,6 @@
 .DS_Store
 demo-output
+.demo-cache
 
 # Playwright
 node_modules/
