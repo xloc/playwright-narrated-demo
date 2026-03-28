@@ -253,10 +253,17 @@ for (let ti = 0; ti < testsToProcess.length; ti++) {
     if (action) {
       freezePoints.push({ timeS: action.startS, durS: audioDurMs[say.index] / 1000, sayIndex: say.index });
     } else {
-      // Fallback: end of last non-excluded action before this @say, or near video start
+      // Fallback: end of last non-excluded action, or right after the last exclude range
       const preceding = traceActions.filter((a) => a.line <= say.line && !excLines.has(a.line));
-      const fallbackT = preceding.length ? preceding[preceding.length - 1].endS : 0.5;
-      freezePoints.push({ timeS: Math.min(fallbackT, vidDurS - 0.01), durS: audioDurMs[say.index] / 1000, sayIndex: say.index });
+      let fallbackT: number;
+      if (preceding.length) {
+        fallbackT = preceding[preceding.length - 1].endS;
+      } else if (excludeRanges.length) {
+        fallbackT = excludeRanges[excludeRanges.length - 1].endS;
+      } else {
+        fallbackT = 0.5;
+      }
+      freezePoints.push({ timeS: snap(Math.min(fallbackT, vidDurS)), durS: audioDurMs[say.index] / 1000, sayIndex: say.index });
     }
   }
 
@@ -361,7 +368,11 @@ for (let ti = 0; ti < testsToProcess.length; ti++) {
       { stdio: "pipe" }
     );
   } else {
-    fs.copyFileSync(concatFile, testOutput);
+    // Add silent audio track so all per-test outputs have matching streams for concat
+    execSync(
+      `ffmpeg -y -i ${q(concatFile)} -f lavfi -i anullsrc=r=44100:cl=stereo -map 0:v -map 1:a -c:v copy -c:a aac -shortest ${q(testOutput)}`,
+      { stdio: "pipe" }
+    );
   }
   perTestOutputs.push(testOutput);
 }
